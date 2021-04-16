@@ -90,7 +90,9 @@ class RGBProvider(neuralProvider):
             
 class neuralSystem(object):
     
-    def __init__(self,neuralDict={"Inputs":{"n":0},"Processors":{}}):
+    def __init__(self,neuralDict=None):
+        if neuralDict == None :
+            neuralDict = {"Inputs":{"n":0},"Processors":{}}
         self.neuralDict = neuralDict
         self.system = {"Inputs":{},"Processors":{}}
         self.lastStrat = -1
@@ -143,30 +145,14 @@ class neuralSystem(object):
     
     def getOutput(self):
         return self.system["Processors"][self.lastStrat][0]
-            
-RGB = RGBProvider(R,G,B)
-
-system = neuralSystem()
-
-system.addInput(1,145) #R
-system.addInput(1,40) #G
-system.addInput(1,59) #B
-
-system.addProcessor(0,[1,1,1],3)
-
-system.build(RGB)
-
-RGB.register(system.system["Inputs"][0],Color.RED)
-RGB.register(system.system["Inputs"][1],Color.GREEN)
-RGB.register(system.system["Inputs"][2],Color.BLUE)
-
-out = system.system["Processors"][0][0]
 
 class StatMaker(neuralProvider):
     
     def __init__(self,provider):
         self.stat = {}
         self.provider = provider
+        self.best = None
+        self.bestScore = 0
     
     def send(self,data:int,sender):
         v = 1 if self.provider.isInRange else 0 
@@ -177,37 +163,104 @@ class StatMaker(neuralProvider):
     
     def processStat(self,systems):
         print("=================Stat Time !==================")
-        m = -1
         s = None
         n = 0
         for k,v in enumerate(self.stat.keys()):
             a = 0
+            
             for t in self.stat[v] :
                 a += 1 if t else 0
             a/= len(self.stat[v])
-            if a > m :
-                m = a
+            
+            if a > self.bestScore :
+                self.bestScore = a
                 s = v
                 n = k
-            print(f"System {k} : efficassiter : {100*a} % ")
-        
-        sys = None
+            print(f"System {k} : efficiency : {100*a} % ")
         
         for system in systems :
             if system.getOutput() == s:
-               sys = system
+               self.best = system
         
         
         print("###################################")
-        print(f"Best System : {n} | {100*a} % Topography :\n {sys.neuralDict}")
-        print("=================== End ======================")
+        print(f"Best System : {n} | {100*self.bestScore} % Topography :\n {self.best.neuralDict}")
+        print("=================== End ======================")      
+        
+        
+RGB = RGBProvider(R,G,B)
 
 stat = StatMaker(RGB)
-out.register(stat)
 
-for i in range(10):
+poolSize = 100
+pool = []
+
+for _ in range(poolSize) :
+
+    system = neuralSystem()
+
+    system.addInput(random.random(),random.randint(0,255)) #R
+    system.addInput(random.random(),random.randint(0,255)) #G
+    system.addInput(random.random(),random.randint(0,255)) #B
+    system.addProcessor(0,[random.random()*3,random.random()*3,random.random()*3],random.randint(0,10))
+    system.build(RGB)
+    
+    pool.append(system)
+    
+    RGB.register(system.system["Inputs"][0],Color.RED)
+    RGB.register(system.system["Inputs"][1],Color.GREEN)
+    RGB.register(system.system["Inputs"][2],Color.BLUE)
+    
+    system.getOutput().register(stat)
+
+for i in range(1000):
     RGB.sendToSystem()
-    system.run()
+    for sys in pool:
+        sys.run()
 
-stat.processStat([system])
+stat.processStat(pool)
 
+scores = [stat.bestScore]
+
+best = stat.best.neuralDict
+
+for _ in range(100):
+    
+    RGB = RGBProvider(R,G,B)
+
+    stat = StatMaker(RGB)
+    
+    pool = []
+    
+    for _ in range(poolSize) :
+
+        system = neuralSystem()
+        
+        BI = best["Inputs"]
+        for i in range(3):
+            system.addInput(BI[i]["weightList"][0] + (random.random() - 0.5)
+                            ,random.randint(-10,10) + BI[i]["ceil"]) #R
+        
+        w = [v + (random.random() - 0.5)*2 for v in best["Processors"][0][0]["weightList"]]
+        system.addProcessor(0,w,best["Processors"][0][0]["ceil"] + random.randint(-1,1))
+        system.build(RGB)
+        
+        pool.append(system)
+        
+        RGB.register(system.system["Inputs"][0],Color.RED)
+        RGB.register(system.system["Inputs"][1],Color.GREEN)
+        RGB.register(system.system["Inputs"][2],Color.BLUE)
+        
+        system.getOutput().register(stat)
+    
+    for i in range(10000):
+        RGB.sendToSystem()
+        for sys in pool:
+            sys.run()
+    
+    stat.processStat(pool)
+    scores.append(stat.bestScore)
+    best = stat.best.neuralDict
+    
+    
+print(scores)
