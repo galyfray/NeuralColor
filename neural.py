@@ -1,12 +1,28 @@
-# RGB code range for a color here 
+# Hello ! 
+# this file is my first attempt at creating a neural system for machine learning
+# this exemple is rather simple as the system is meant to predict if an RGB code correspond to pink
+# this system is based on the simplest neuron system I found formal neurons
+# this program is only meant to work and I will create a much proper version later on another repo.
+
+
+
 
 from enum import Enum
 import random
 from abc import ABC, abstractmethod
 
+# RGB code range for a color here pink
+
 R = [255,145]
 G = [234,40]
 B = [225,59]
+
+class Color(Enum):
+    RED = 1
+    GREEN = 2
+    BLUE = 3
+
+# basic neuron
 
 class neuralProvider(ABC):
     
@@ -20,10 +36,14 @@ class neuralProvider(ABC):
     def send(self,data:int,sender):
         pass
 
+# a classic formalNeuron
+
 class formalNeurons(neuralProvider):
     
     def __init__(self,providers,weightList,ceil,register=True):
         neuralProvider.__init__(self)
+        
+        assert len(weightList) == len(providers)
         
         self.providers = {providers[i]:{"weight":weightList[i],"data":None} for i in range(len(weightList))}
         
@@ -50,10 +70,7 @@ class formalNeurons(neuralProvider):
         for reciver in self.recivers:
             reciver.send(1 if sum >= self.ceil else 0,self)
 
-class Color(Enum):
-    RED = 1
-    GREEN = 2
-    BLUE = 3
+# Input neuron create data check if it is the right color
 
 class RGBProvider(neuralProvider):
     
@@ -87,7 +104,9 @@ class RGBProvider(neuralProvider):
     
     def send(self, data, sender):
         pass
-            
+
+# Allow easier creation of a neural system 
+
 class neuralSystem(object):
     
     def __init__(self,neuralDict=None):
@@ -138,13 +157,15 @@ class neuralSystem(object):
     def run(self):
         for elem in self.system["Inputs"].values():
             elem.compute()
-        
+
         for strat in self.system["Processors"].values():
             for elem in strat.values():
                 elem.compute()
     
     def getOutput(self):
         return self.system["Processors"][self.lastStrat][0]
+
+# statistique making neuron
 
 class StatMaker(neuralProvider):
     
@@ -195,6 +216,8 @@ stat = StatMaker(RGB)
 poolSize = 100
 pool = []
 
+#inital pool of random neuron system
+
 for _ in range(poolSize) :
 
     system = neuralSystem()
@@ -202,7 +225,19 @@ for _ in range(poolSize) :
     system.addInput(random.random(),random.randint(0,255)) #R
     system.addInput(random.random(),random.randint(0,255)) #G
     system.addInput(random.random(),random.randint(0,255)) #B
+    
     system.addProcessor(0,[random.random()*3,random.random()*3,random.random()*3],random.randint(0,10))
+    system.addProcessor(0,[random.random()*3,random.random()*3,random.random()*3],random.randint(0,10))
+    system.addProcessor(0,[random.random()*3,random.random()*3,random.random()*3],random.randint(0,10))
+    system.addProcessor(0,[random.random()*3,random.random()*3,random.random()*3],random.randint(0,10))
+    system.addProcessor(0,[random.random()*3,random.random()*3,random.random()*3],random.randint(0,10))
+    
+    system.addProcessor(1,[random.random()*3,random.random()*3,random.random()*3,random.random()*3,random.random()*3],random.randint(0,10))
+    system.addProcessor(1,[random.random()*3,random.random()*3,random.random()*3,random.random()*3,random.random()*3],random.randint(0,10))
+    system.addProcessor(1,[random.random()*3,random.random()*3,random.random()*3,random.random()*3,random.random()*3],random.randint(0,10))
+    
+    system.addProcessor(2,[random.random()*3,random.random()*3,random.random()*3],random.randint(0,10))
+    
     system.build(RGB)
     
     pool.append(system)
@@ -222,7 +257,11 @@ stat.processStat(pool)
 
 scores = [stat.bestScore]
 
+bestScore = stat.bestScore
+
 best = stat.best.neuralDict
+
+#genetic algorythm to improove system performance
 
 for _ in range(100):
     
@@ -241,8 +280,17 @@ for _ in range(100):
             system.addInput(BI[i]["weightList"][0] + (random.random() - 0.5)
                             ,random.randint(-10,10) + BI[i]["ceil"]) #R
         
-        w = [v + (random.random() - 0.5)*2 for v in best["Processors"][0][0]["weightList"]]
-        system.addProcessor(0,w,best["Processors"][0][0]["ceil"] + random.randint(-1,1))
+        for i in range(5) :
+            w = [v + (random.random() - 0.5)*2 for v in best["Processors"][0][i]["weightList"]]
+            system.addProcessor(0,w,best["Processors"][0][i]["ceil"] + random.randint(-1,1))
+            
+        for i in range(3) :
+            w = [v + (random.random() - 0.5)*2 for v in best["Processors"][1][i]["weightList"]]
+            system.addProcessor(1,w,best["Processors"][1][i]["ceil"] + random.randint(-1,1))
+        
+        w = [v + (random.random() - 0.5)*2 for v in best["Processors"][2][0]["weightList"]]
+        system.addProcessor(2,w,best["Processors"][2][0]["ceil"] + random.randint(-1,1))
+        
         system.build(RGB)
         
         pool.append(system)
@@ -253,14 +301,24 @@ for _ in range(100):
         
         system.getOutput().register(stat)
     
-    for i in range(10000):
+    for i in range(1000):
         RGB.sendToSystem()
         for sys in pool:
             sys.run()
     
     stat.processStat(pool)
+    
+    if bestScore < stat.bestScore :
+        best = stat.best.neuralDict
+        bestScore = stat.bestScore
+    
     scores.append(stat.bestScore)
-    best = stat.best.neuralDict
+    
+    
+    
+    
     
     
 print(scores)
+print(bestScore)
+print(best)
